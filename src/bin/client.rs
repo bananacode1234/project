@@ -2,9 +2,9 @@ use tokio::{io::{AsyncBufReadExt, AsyncWriteExt, BufReader, stdin}, net::TcpStre
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let addr = "127.0.0.1:8080";
+    let addr = std::env::args().nth(1).unwrap_or(String::from("127.0.0.1:8080"));
 
-    let mut socket = TcpStream::connect(addr).await?;
+    let mut socket = TcpStream::connect(&addr).await?;
 
     println!("Connected to {addr}");
 

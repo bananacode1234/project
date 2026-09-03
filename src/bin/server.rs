@@ -2,13 +2,13 @@ use tokio::{io::AsyncWriteExt, io::AsyncBufReadExt, io::BufReader, net::TcpListe
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let addr = "127.0.0.1:8080";
+    let addr = std::env::args().nth(1).unwrap_or(String::from("0.0.0.0:8080"));
 
-    let listener = TcpListener::bind(addr).await?;
+    let listener = TcpListener::bind(&addr).await?;
 
     println!("Listening on {addr}");
 
-    let (tx, _rx) = broadcast::channel::<String>(32);
+    let (tx, _rx) = broadcast::channel::<(String, std::net::SocketAddr)>(32);
 
     loop {
         let (mut socket, _) = listener.accept().await?;
@@ -29,12 +29,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             break;
                         }
 
-                        let _ = tx.send(line.to_string());
+                        let _ = tx.send((line.to_string(), writer.peer_addr().unwrap()));
 
                         line.clear();
                     }
                     result = rx.recv() => {
-                        if let Ok(msg) = result {
+                        if let Ok((msg, addr)) = result {
+                            if addr == writer.peer_addr().unwrap() {
+                                continue;
+                            }
                             if writer.write_all(msg.as_bytes()).await.is_err() {
                                 break;
                             }
@@ -43,7 +46,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
             }
 
-            println!("Client disconnected")
+            println!("Client disconnected");
         });
     }
 }

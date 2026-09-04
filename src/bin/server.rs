@@ -11,7 +11,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let (tx, _rx) = broadcast::channel::<(String, std::net::SocketAddr)>(32);
 
     loop {
-        let (mut socket, _) = listener.accept().await?;
+        let (mut socket, peer_addr) = listener.accept().await?;
         println!("Client connected");
 
         let tx = tx.clone();
@@ -29,13 +29,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             break;
                         }
 
-                        let _ = tx.send((line.to_string(), writer.peer_addr().unwrap()));
+                        let _ = tx.send((line.to_string(), peer_addr));
 
                         line.clear();
                     }
                     result = rx.recv() => {
                         if let Ok((msg, addr)) = result {
-                            if addr == writer.peer_addr().unwrap() {
+                            if addr == peer_addr {
                                 continue;
                             }
                             if writer.write_all(msg.as_bytes()).await.is_err() {

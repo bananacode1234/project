@@ -12,7 +12,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     loop {
         let (mut socket, peer_addr) = listener.accept().await?;
-        println!("Client connected");
+        println!("{} connected", peer_addr);
 
         let tx = tx.clone();
         let mut rx = tx.subscribe();
@@ -46,7 +46,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
             }
 
-            println!("Client disconnected");
+            println!("{} disconnected", peer_addr);
         });
     }
 }

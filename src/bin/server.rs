@@ -1,8 +1,12 @@
-use tokio::{io::AsyncWriteExt, io::AsyncBufReadExt, io::BufReader, net::TcpListener, sync::broadcast};
+use tokio::{
+    io::AsyncBufReadExt, io::AsyncWriteExt, io::BufReader, net::TcpListener, sync::broadcast,
+};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let addr = std::env::args().nth(1).unwrap_or(String::from("0.0.0.0:8080"));
+    let addr = std::env::args()
+        .nth(1)
+        .unwrap_or(String::from("0.0.0.0:8080"));
 
     let listener = TcpListener::bind(&addr).await?;
 

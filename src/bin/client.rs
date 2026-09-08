@@ -1,8 +1,13 @@
-use tokio::{io::{AsyncBufReadExt, AsyncWriteExt, BufReader, stdin}, net::TcpStream};
+use tokio::{
+    io::{AsyncBufReadExt, AsyncWriteExt, BufReader, stdin},
+    net::TcpStream,
+};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let addr = std::env::args().nth(1).unwrap_or(String::from("127.0.0.1:8080"));
+    let addr = std::env::args()
+        .nth(1)
+        .unwrap_or(String::from("127.0.0.1:8080"));
 
     let mut socket = TcpStream::connect(&addr).await?;
 

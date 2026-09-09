@@ -25,6 +25,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         tokio::spawn(async move {
             let mut framed = Framed::new(socket, LengthDelimitedCodec::new());
 
+            let _ = tx.send((format!("{peer_addr} connected"), peer_addr));
+
             loop {
                 tokio::select! {
                     result = framed.next() => {
@@ -59,6 +61,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
 
             println!("{} disconnected", peer_addr);
+            let _ = tx.send((format!("{peer_addr} disconnected"), peer_addr));
         });
     }
 }

@@ -41,7 +41,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 // stdin -> server
                 match result {
                     Ok(Some(result)) => {
-                        if framed.send(Bytes::from(result)).await.is_err() {
+                        if !result.is_empty() && framed.send(Bytes::from(result)).await.is_err() {
                             break;
                         }
                     }

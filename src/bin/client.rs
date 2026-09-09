@@ -1,7 +1,10 @@
+use bytes::Bytes;
+use futures::{SinkExt, StreamExt};
 use tokio::{
-    io::{AsyncBufReadExt, AsyncWriteExt, BufReader, stdin},
+    io::{AsyncBufReadExt, BufReader, stdin},
     net::TcpStream,
 };
+use tokio_util::codec::{Framed, LengthDelimitedCodec};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -9,39 +12,48 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .nth(1)
         .unwrap_or(String::from("127.0.0.1:8080"));
 
-    let mut socket = TcpStream::connect(&addr).await?;
+    let socket = TcpStream::connect(&addr).await?;
+    let mut framed = Framed::new(socket, LengthDelimitedCodec::new());
 
     println!("Connected to {addr}");
+    println!("Type and press enter to send");
 
-    let (reader, mut writer) = socket.split();
-
-    let mut server_reader = BufReader::new(reader);
-    let mut stdin_reader = BufReader::new(stdin());
-
-    let mut server_line = String::new();
-    let mut stdin_line = String::new();
+    let mut lines = BufReader::new(stdin()).lines();
 
     loop {
         tokio::select! {
-            result = server_reader.read_line(&mut server_line) => {
-                if result.unwrap_or(0) == 0 {
-                    break;
+            result = framed.next() => {
+                // server -> stdout
+                match result {
+                    Some(Ok(result)) => {
+                        if let Ok(msg) = std::str::from_utf8(&result) {
+                            println!("{msg}");
+                        } else {
+                            break;
+                        }
+                    }
+                    _ => {
+                        break;
+                    }
                 }
-
-                print!("{server_line}");
-                server_line.clear();
             }
-
-            result = stdin_reader.read_line(&mut stdin_line) => {
-                if result.unwrap_or(0) == 0 {
-                    break;
+            result = lines.next_line() => {
+                // stdin -> server
+                match result {
+                    Ok(Some(result)) => {
+                        if framed.send(Bytes::from(result)).await.is_err() {
+                            break;
+                        }
+                    }
+                    _ => {
+                        break;
+                    }
                 }
-
-                writer.write_all(stdin_line.as_bytes()).await?;
-                stdin_line.clear();
             }
         }
     }
+
+    println!("Disconnected");
 
     Ok(())
 }

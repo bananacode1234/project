@@ -1,6 +1,7 @@
-use tokio::{
-    io::AsyncBufReadExt, io::AsyncWriteExt, io::BufReader, net::TcpListener, sync::broadcast,
-};
+use bytes::Bytes;
+use futures::{SinkExt, StreamExt};
+use tokio::{net::TcpListener, sync::broadcast};
+use tokio_util::codec::{Framed, LengthDelimitedCodec};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -15,35 +16,42 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let (tx, _rx) = broadcast::channel::<(String, std::net::SocketAddr)>(32);
 
     loop {
-        let (mut socket, peer_addr) = listener.accept().await?;
+        let (socket, peer_addr) = listener.accept().await?;
         println!("{} connected", peer_addr);
 
         let tx = tx.clone();
         let mut rx = tx.subscribe();
 
         tokio::spawn(async move {
-            let (reader, mut writer) = socket.split();
-            let mut reader = BufReader::new(reader);
-            let mut line = String::new();
+            let mut framed = Framed::new(socket, LengthDelimitedCodec::new());
 
             loop {
                 tokio::select! {
-                    result = reader.read_line(&mut line) => {
-                        if result.unwrap_or(0) == 0 {
-                            break;
+                    result = framed.next() => {
+                        // client message -> broadcast
+                        match result {
+                            Some(Ok(result)) => {
+                                if let Ok(msg) = std::str::from_utf8(&result) {
+                                    let _ = tx.send((String::from(msg), peer_addr));
+                                } else {
+                                    break;
+                                }
+                            }
+                            _ => {
+                                break;
+                            }
                         }
-
-                        let _ = tx.send((line.to_string(), peer_addr));
-
-                        line.clear();
                     }
                     result = rx.recv() => {
-                        if let Ok((msg, addr)) = result {
-                            if addr == peer_addr {
-                                continue;
+                        // broadcast message -> client
+                        match result {
+                            Ok((msg, addr)) => {
+                                if peer_addr != addr && framed.send(Bytes::from(msg)).await.is_err() {
+                                    break;
+                                }
                             }
-                            if writer.write_all(msg.as_bytes()).await.is_err() {
-                                break;
+                            _ => {
+                                continue;
                             }
                         }
                     }

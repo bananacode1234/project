@@ -1,4 +1,4 @@
-use bytes::Bytes;
+use chat::protocol::{self, Message};
 use futures::{SinkExt, StreamExt};
 use tokio::{
     io::{AsyncBufReadExt, BufReader, stdin},
@@ -24,30 +24,37 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         tokio::select! {
             result = framed.next() => {
                 // server -> stdout
-                match result {
-                    Some(Ok(result)) => {
-                        if let Ok(msg) = std::str::from_utf8(&result) {
-                            println!("{msg}");
-                        } else {
+                let Some(Ok(frame)) = result else {
+                    break;
+                };
+
+                let Ok(message) = protocol::decode(frame.freeze()) else {
+                    break;
+                };
+
+                match message {
+                    Message::Ping => {
+                        if framed.send(protocol::encode(Message::Ping)).await.is_err() {
                             break;
                         }
                     }
-                    _ => {
-                        break;
+                    Message::Text(msg) => {
+                        println!("{msg}");
                     }
                 }
             }
             result = lines.next_line() => {
                 // stdin -> server
-                match result {
-                    Ok(Some(result)) => {
-                        if !result.is_empty() && framed.send(Bytes::from(result)).await.is_err() {
-                            break;
-                        }
-                    }
-                    _ => {
-                        break;
-                    }
+                let Ok(Some(msg)) = result else {
+                    break;
+                };
+
+                if msg.is_empty() {
+                    continue;
+                }
+
+                if framed.send(protocol::encode(Message::Text(msg))).await.is_err() {
+                    break;
                 }
             }
         }

@@ -1,4 +1,4 @@
-use bytes::Bytes;
+use chat::protocol;
 use futures::{SinkExt, StreamExt};
 use tokio::{net::TcpListener, sync::broadcast};
 use tokio_util::codec::{Framed, LengthDelimitedCodec};
@@ -31,30 +31,37 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 tokio::select! {
                     result = framed.next() => {
                         // client message -> broadcast
-                        match result {
-                            Some(Ok(result)) => {
-                                if let Ok(msg) = std::str::from_utf8(&result) {
-                                    let _ = tx.send((String::from(msg), peer_addr));
-                                } else {
+                        let Some(Ok(frame)) = result else {
+                            break;
+                        };
+
+                        let Ok(message) = protocol::decode(frame.freeze()) else {
+                            break;
+                        };
+
+                        match message {
+                            protocol::Message::Ping => {
+                                if framed.send(protocol::encode(protocol::Message::Ping)).await.is_err() {
                                     break;
                                 }
                             }
-                            _ => {
-                                break;
+                            protocol::Message::Text(msg) => {
+                                let _ = tx.send((msg, peer_addr));
                             }
                         }
                     }
                     result = rx.recv() => {
                         // broadcast message -> client
-                        match result {
-                            Ok((msg, addr)) => {
-                                if peer_addr != addr && framed.send(Bytes::from(msg)).await.is_err() {
-                                    break;
-                                }
-                            }
-                            _ => {
-                                continue;
-                            }
+                        let Ok((msg, addr)) = result else {
+                            continue;
+                        };
+
+                        if peer_addr == addr {
+                            continue;
+                        }
+
+                        if framed.send(protocol::encode(protocol::Message::Text(msg))).await.is_err() {
+                            break;
                         }
                     }
                 }

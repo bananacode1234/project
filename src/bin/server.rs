@@ -1,6 +1,10 @@
 use chat::protocol;
 use futures::{SinkExt, StreamExt};
-use tokio::{net::TcpListener, sync::broadcast};
+use tokio::{
+    net::TcpListener,
+    sync::broadcast,
+    time::{Duration, Instant, interval},
+};
 use tokio_util::codec::{Framed, LengthDelimitedCodec};
 
 #[tokio::main]
@@ -25,10 +29,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         tokio::spawn(async move {
             let mut framed = Framed::new(socket, LengthDelimitedCodec::new());
 
+            let mut heartbeat_timer = interval(Duration::from_secs(30));
+            let mut last_seen = Instant::now();
+
             let _ = tx.send((format!("{peer_addr} connected"), peer_addr));
 
             loop {
                 tokio::select! {
+                    _ = heartbeat_timer.tick() => {
+                        if last_seen.elapsed() > Duration::from_secs(60) {
+                            break;
+                        }
+                    }
                     result = framed.next() => {
                         // client message -> broadcast
                         let Some(Ok(frame)) = result else {
@@ -39,12 +51,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             break;
                         };
 
+                        last_seen = Instant::now();
+
                         match message {
-                            protocol::Message::Ping => {
-                                if framed.send(protocol::encode(protocol::Message::Ping)).await.is_err() {
-                                    break;
-                                }
-                            }
+                            protocol::Message::Ping => (),
                             protocol::Message::Text(msg) => {
                                 let _ = tx.send((msg, peer_addr));
                             }

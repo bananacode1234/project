@@ -3,6 +3,8 @@ use futures::{SinkExt, StreamExt};
 use tokio::{
     io::{AsyncBufReadExt, BufReader, stdin},
     net::TcpStream,
+    time::Duration,
+    time::interval,
 };
 use tokio_util::codec::{Framed, LengthDelimitedCodec};
 
@@ -15,6 +17,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let socket = TcpStream::connect(&addr).await?;
     let mut framed = Framed::new(socket, LengthDelimitedCodec::new());
 
+    let mut heartbeat_timer = interval(Duration::from_secs(30));
+
     println!("Connected to {addr}");
     println!("Type and press enter to send");
 
@@ -22,6 +26,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     loop {
         tokio::select! {
+            _ = heartbeat_timer.tick() => {
+                if framed.send(protocol::encode(Message::Ping)).await.is_err() {
+                    break;
+                }
+            }
             result = framed.next() => {
                 // server -> stdout
                 let Some(Ok(frame)) = result else {
@@ -33,11 +42,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 };
 
                 match message {
-                    Message::Ping => {
-                        if framed.send(protocol::encode(Message::Ping)).await.is_err() {
-                            break;
-                        }
-                    }
+                    Message::Ping => (),
                     Message::Text(msg) => {
                         println!("{msg}");
                     }

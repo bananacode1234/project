@@ -1,4 +1,4 @@
-use chat::protocol;
+use chat::protocol::{self, Message};
 use futures::{SinkExt, StreamExt};
 use tokio::{
     net::TcpListener,
@@ -17,7 +17,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("Listening on {addr}");
 
-    let (tx, _rx) = broadcast::channel::<(String, std::net::SocketAddr)>(32);
+    let (tx, _rx) = broadcast::channel::<(String, Option<std::net::SocketAddr>)>(32);
 
     loop {
         let (socket, peer_addr) = listener.accept().await?;
@@ -32,7 +32,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let mut heartbeat_timer = interval(Duration::from_secs(30));
             let mut last_seen = Instant::now();
 
-            let _ = tx.send((format!("{peer_addr} connected"), peer_addr));
+            let mut nickname = peer_addr.to_string();
+
+            let _ = tx.send((format!("[server] {nickname} connected"), None));
 
             loop {
                 tokio::select! {
@@ -54,9 +56,31 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         last_seen = Instant::now();
 
                         match message {
-                            protocol::Message::Ping => (),
-                            protocol::Message::Text(msg) => {
-                                let _ = tx.send((msg, peer_addr));
+                            Message::Ping => (),
+                            Message::Text(msg) => {
+                                let _ = tx.send((format!("<{nickname}> {msg}"), Some(peer_addr)));
+                            }
+                            Message::Nick(new) => {
+                                if new == nickname {
+                                    continue;
+                                }
+
+                                if !(3..=20).contains(&new.len()) || new.chars().any(|c| !c.is_ascii_alphanumeric()) {
+                                    if framed.send(protocol::encode(
+                                        Message::Text("[server] invalid nickname (3-20 letters/numbers only)".to_owned())
+                                    )).await.is_err() {
+                                        break;
+                                    }
+
+                                    continue;
+                                }
+
+                                if framed.send(protocol::encode(Message::Nick(new.clone()))).await.is_err() {
+                                    break;
+                                }
+
+                                let _ = tx.send((format!("[server] {nickname} has changed their nickname to {new}"), Some(peer_addr)));
+                                nickname = new;
                             }
                         }
                     }
@@ -66,11 +90,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             continue;
                         };
 
-                        if peer_addr == addr {
+                        if Some(peer_addr) == addr {
                             continue;
                         }
 
-                        if framed.send(protocol::encode(protocol::Message::Text(msg))).await.is_err() {
+                        if framed.send(protocol::encode(Message::Text(msg))).await.is_err() {
                             break;
                         }
                     }
@@ -78,7 +102,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
 
             println!("{} disconnected", peer_addr);
-            let _ = tx.send((format!("{peer_addr} disconnected"), peer_addr));
+            let _ = tx.send((format!("[server] {nickname} disconnected"), Some(peer_addr)));
         });
     }
 }

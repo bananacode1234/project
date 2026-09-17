@@ -1,11 +1,7 @@
 use chat::protocol::{self, Message};
 use futures::{SinkExt, StreamExt};
-use tokio::{
-    io::{AsyncBufReadExt, BufReader, stdin},
-    net::TcpStream,
-    time::Duration,
-    time::interval,
-};
+use std::io::BufRead;
+use tokio::{net::TcpStream, sync::mpsc, time::Duration, time::interval};
 use tokio_util::codec::{Framed, LengthDelimitedCodec};
 
 #[tokio::main]
@@ -14,15 +10,28 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .nth(1)
         .unwrap_or(String::from("127.0.0.1:8080"));
 
+    println!("Connecting to {addr}...");
+
     let socket = TcpStream::connect(&addr).await?;
     let mut framed = Framed::new(socket, LengthDelimitedCodec::new());
 
     let mut heartbeat_timer = interval(Duration::from_secs(30));
 
-    println!("Connected to {addr}");
-    println!("Type and press enter to send");
+    let (tx, mut rx) = mpsc::channel::<String>(32);
 
-    let mut lines = BufReader::new(stdin()).lines();
+    std::thread::spawn(move || {
+        let stdin = std::io::stdin();
+
+        let mut lines = std::io::BufReader::new(stdin).lines();
+
+        while let Some(Ok(input)) = lines.next() {
+            if tx.blocking_send(input).is_err() {
+                break;
+            }
+        }
+    });
+
+    let mut nickname: String;
 
     loop {
         tokio::select! {
@@ -46,15 +55,40 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     Message::Text(msg) => {
                         println!("{msg}");
                     }
+                    Message::Nick(new) => {
+                        println!("Nickname updated to {new}");
+                        nickname = new;
+                    }
                 }
             }
-            result = lines.next_line() => {
+            result = rx.recv() => {
                 // stdin -> server
-                let Ok(Some(msg)) = result else {
+                let Some(msg) = result else {
                     break;
                 };
 
                 if msg.is_empty() {
+                    continue;
+                }
+
+                if let Some(command) = msg.strip_prefix('/') {
+                    let mut args = command.split_whitespace();
+
+                    match args.next() {
+                        Some("nick") => {
+                            let Some(nick) = args.next() else {
+                                println!("Missing argument");
+                                continue;
+                            };
+
+                            if framed.send(protocol::encode(Message::Nick(nick.to_owned()))).await.is_err() {
+                                break;
+                            }
+                        }
+                        Some("exit") | Some("quit") => break,
+                        _ => println!("Invalid command"),
+                    }
+
                     continue;
                 }
 

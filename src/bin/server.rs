@@ -58,6 +58,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         match message {
                             Message::Ping => (),
                             Message::Text(msg) => {
+                                if msg.trim().is_empty() {
+                                    continue;
+                                }
+
                                 let _ = tx.send((format!("<{nickname}> {msg}"), Some(peer_addr)));
                             }
                             Message::Nick(new) => {

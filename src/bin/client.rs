@@ -67,7 +67,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     break;
                 };
 
-                if msg.is_empty() {
+                if msg.trim().is_empty() {
                     continue;
                 }
 

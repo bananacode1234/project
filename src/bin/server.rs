@@ -1,8 +1,9 @@
 use chat::protocol::{self, Message};
 use futures::{SinkExt, StreamExt};
+use std::{collections::HashSet, sync::Arc};
 use tokio::{
     net::TcpListener,
-    sync::broadcast,
+    sync::{Mutex, broadcast},
     time::{Duration, Instant, interval},
 };
 use tokio_util::codec::{Framed, LengthDelimitedCodec};
@@ -19,6 +20,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let (tx, _rx) = broadcast::channel::<(String, Option<std::net::SocketAddr>)>(32);
 
+    let nicknames = Arc::new(Mutex::new(HashSet::<String>::new()));
+
     loop {
         let (socket, peer_addr) = listener.accept().await?;
         println!("{} connected", peer_addr);
@@ -26,6 +29,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let tx = tx.clone();
         let mut rx = tx.subscribe();
 
+        let set = Arc::clone(&nicknames);
         tokio::spawn(async move {
             let mut framed = Framed::new(socket, LengthDelimitedCodec::new());
 
@@ -33,6 +37,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let mut last_seen = Instant::now();
 
             let mut nickname = peer_addr.to_string();
+
+            {
+                let mut data = set.lock().await;
+                data.insert(nickname.clone());
+            }
 
             let _ = tx.send((format!("[server] {nickname} connected"), None));
 
@@ -79,7 +88,27 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                     continue;
                                 }
 
-                                if framed.send(protocol::encode(Message::Nick(new.clone()))).await.is_err() || framed.send(protocol::encode(Message::Text(format!("[server] your nickname has been updated to {new}")))).await.is_err() {
+                                let taken = {
+                                    let mut data = set.lock().await;
+
+                                    if data.contains(&new) {
+                                        true
+                                    } else {
+                                        data.insert(new.clone());
+                                        data.remove(&nickname);
+                                        false
+                                    }
+                                };
+
+                                if taken {
+                                    if framed.send(protocol::encode(Message::Text("[server] that nickname is taken".to_owned()))).await.is_err() {
+                                        break;
+                                    }
+
+                                    continue;
+                                }
+
+                                if framed.send(protocol::encode(Message::Nick(new.clone()))).await.is_err() || framed.send(protocol::encode(Message::Text(format!("[server] your nickname has been changed to {new}")))).await.is_err() {
                                     break;
                                 }
 
@@ -114,6 +143,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     }
                 }
             }
+
+            let mut data = set.lock().await;
+            data.remove(&nickname);
 
             println!("{} disconnected", peer_addr);
             let _ = tx.send((format!("[server] {nickname} disconnected"), Some(peer_addr)));

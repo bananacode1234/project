@@ -1,6 +1,6 @@
 use chat::protocol::{self, Message};
 use futures::{SinkExt, StreamExt};
-use std::io::BufRead;
+use reedline::{DefaultPrompt, DefaultPromptSegment, ExternalPrinter, Reedline, Signal};
 use tokio::{net::TcpStream, sync::mpsc, time::Duration, time::interval};
 use tokio_util::codec::{Framed, LengthDelimitedCodec};
 
@@ -19,12 +19,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let (tx, mut rx) = mpsc::channel::<String>(32);
 
+    let printer = ExternalPrinter::new(1024);
+    let sender = printer.sender();
+
     std::thread::spawn(move || {
-        let stdin = std::io::stdin();
+        let mut line_editor = Reedline::create().with_external_printer(printer);
 
-        let mut lines = std::io::BufReader::new(stdin).lines();
+        let prompt = DefaultPrompt::new(DefaultPromptSegment::Empty, DefaultPromptSegment::Empty);
 
-        while let Some(Ok(input)) = lines.next() {
+        while let Ok(Signal::Success(input)) = line_editor.read_line(&prompt) {
             if tx.blocking_send(input).is_err() {
                 break;
             }
@@ -53,10 +56,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 match message {
                     Message::Ping => (),
                     Message::Text(msg) => {
-                        println!("{msg}");
+                        let _ = sender.send(msg.to_owned());
                     }
                     Message::Nick(new) => {
-                        println!("Nickname updated to {new}");
                         nickname = new;
                     }
                 }
@@ -77,7 +79,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     match args.next() {
                         Some("nick") => {
                             let Some(nick) = args.next() else {
-                                println!("Missing argument");
+                                let _ = sender.send("Missing argument".to_owned());
                                 continue;
                             };
 
@@ -86,7 +88,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             }
                         }
                         Some("exit") | Some("quit") => break,
-                        _ => println!("Invalid command"),
+                        _ => {
+                            let _ = sender.send("Invalid command".to_owned());
+                        }
                     }
 
                     continue;
@@ -99,7 +103,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    println!("Disconnected");
+    let _ = sender.send("Disconnected".to_owned());
 
     Ok(())
 }

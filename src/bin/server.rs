@@ -79,7 +79,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                     continue;
                                 }
 
-                                if framed.send(protocol::encode(Message::Nick(new.clone()))).await.is_err() {
+                                if framed.send(protocol::encode(Message::Nick(new.clone()))).await.is_err() || framed.send(protocol::encode(Message::Text(format!("[server] your nickname has been updated to {new}")))).await.is_err() {
                                     break;
                                 }
 

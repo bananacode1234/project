@@ -90,8 +90,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     }
                     result = rx.recv() => {
                         // broadcast message -> client
-                        let Ok((msg, addr)) = result else {
-                            continue;
+                        let (msg, addr) = match result {
+                            Ok((msg, addr)) => (msg, addr),
+                            Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
+                                if framed.send(protocol::encode(Message::Text(format!("[server] you missed {n} messages")))).await.is_err() {
+                                    break;
+                                }
+
+                                continue;
+                            }
+                            _ => {
+                                continue;
+                            }
                         };
 
                         if Some(peer_addr) == addr {

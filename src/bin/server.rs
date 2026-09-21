@@ -29,7 +29,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         tokio::spawn(async move {
             let mut framed = Framed::new(socket, LengthDelimitedCodec::new());
 
-            let mut heartbeat_timer = interval(Duration::from_secs(30));
+            let mut heartbeat_timer = interval(Duration::from_secs(10));
             let mut last_seen = Instant::now();
 
             let mut nickname = peer_addr.to_string();
@@ -39,7 +39,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             loop {
                 tokio::select! {
                     _ = heartbeat_timer.tick() => {
-                        if last_seen.elapsed() > Duration::from_secs(60) {
+                        if last_seen.elapsed() > Duration::from_secs(40) {
                             break;
                         }
                     }

@@ -15,7 +15,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let socket = TcpStream::connect(&addr).await?;
     let mut framed = Framed::new(socket, LengthDelimitedCodec::new());
 
-    let mut heartbeat_timer = interval(Duration::from_secs(30));
+    let mut heartbeat_timer = interval(Duration::from_secs(15));
 
     let (tx, mut rx) = mpsc::channel::<String>(32);
 

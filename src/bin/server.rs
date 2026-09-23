@@ -65,13 +65,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         last_seen = Instant::now();
 
                         match message {
-                            Message::Ping => (),
+                            Message::Ping => {},
                             Message::Text(msg) => {
                                 if msg.trim().is_empty() {
                                     continue;
                                 }
 
-                                let _ = tx.send((format!("<{nickname}> {msg}"), Some(peer_addr)));
+                                let _ = tx.send((format!("<{nickname}> {msg}"), None));
                             }
                             Message::Nick(new) => {
                                 if new == nickname {
@@ -128,9 +128,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                                 continue;
                             }
-                            _ => {
-                                continue;
-                            }
+                            _ => continue,
                         };
 
                         if Some(peer_addr) == addr {

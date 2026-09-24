@@ -39,8 +39,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let mut nickname = peer_addr.to_string();
 
             {
-                let mut data = set.lock().await;
-                data.insert(nickname.clone());
+                let mut nicknames = set.lock().await;
+                nicknames.insert(nickname.to_lowercase());
             }
 
             let _ = tx.send((format!("[server] {nickname} connected"), None));
@@ -74,7 +74,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 let _ = tx.send((format!("<{nickname}> {msg}"), None));
                             }
                             Message::Nick(new) => {
-                                if new == nickname {
+                                if new.to_lowercase() == nickname.to_lowercase() {
                                     continue;
                                 }
 
@@ -89,13 +89,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 }
 
                                 let taken = {
-                                    let mut data = set.lock().await;
+                                    let mut nicknames = set.lock().await;
 
-                                    if data.contains(&new) {
+                                    if nicknames.contains(&new.to_lowercase()) {
                                         true
                                     } else {
-                                        data.insert(new.clone());
-                                        data.remove(&nickname);
+                                        nicknames.insert(new.to_lowercase());
+                                        nicknames.remove(&nickname.to_lowercase());
                                         false
                                     }
                                 };
@@ -142,8 +142,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
             }
 
-            let mut data = set.lock().await;
-            data.remove(&nickname);
+            {
+                let mut nicknames = set.lock().await;
+                nicknames.remove(&nickname.to_lowercase());
+            }
 
             println!("{} disconnected", peer_addr);
             let _ = tx.send((format!("[server] {nickname} disconnected"), Some(peer_addr)));

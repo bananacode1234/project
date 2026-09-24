@@ -6,7 +6,7 @@ use tokio::{
     sync::{Mutex, broadcast},
     time::{Duration, Instant, interval},
 };
-use tokio_util::codec::{Framed, LengthDelimitedCodec};
+use tokio_util::codec::Framed;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -29,7 +29,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         let set = Arc::clone(&nicknames);
         tokio::spawn(async move {
-            let mut framed = Framed::new(socket, LengthDelimitedCodec::new());
+            let mut framed = Framed::new(socket, protocol::codec());
 
             let mut heartbeat_timer = interval(Duration::from_secs(10));
             let mut last_seen = Instant::now();
@@ -69,7 +69,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                     continue;
                                 }
 
-                                if !msg.chars().all(|c| c.is_ascii_graphic() || c == ' ') {
+                                if msg.len() > protocol::MAX_TEXT_LEN || !msg.chars().all(|c| c.is_ascii_graphic() || c == ' ') {
                                     break;
                                 }
 

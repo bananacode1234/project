@@ -1,5 +1,9 @@
 use bytes::Bytes;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
+use tokio_util::codec::LengthDelimitedCodec;
+
+const MAX_FRAME_LEN: usize = 1024;
+pub const MAX_TEXT_LEN: usize = 500;
 
 #[derive(Serialize, Deserialize, Clone)]
 pub enum ClientMessage {
@@ -23,4 +27,10 @@ pub fn encode<T: Serialize>(message: &T) -> Bytes {
 
 pub fn decode<T: DeserializeOwned>(bytes: &[u8]) -> Result<T, postcard::Error> {
     postcard::from_bytes(bytes)
+}
+
+pub fn codec() -> LengthDelimitedCodec {
+    LengthDelimitedCodec::builder()
+        .max_frame_length(MAX_FRAME_LEN)
+        .new_codec()
 }

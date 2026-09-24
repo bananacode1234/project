@@ -12,7 +12,7 @@ use tokio::{
     net::TcpStream,
     time::{Duration, interval},
 };
-use tokio_util::codec::{Framed, LengthDelimitedCodec};
+use tokio_util::codec::Framed;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -59,7 +59,7 @@ impl App {
             .unwrap_or("127.0.0.1:8080".to_owned());
 
         let socket = TcpStream::connect(&addr).await?;
-        let mut framed = Framed::new(socket, LengthDelimitedCodec::new());
+        let mut framed = Framed::new(socket, protocol::codec());
 
         let mut heartbeat_timer = interval(Duration::from_secs(15));
 
@@ -105,7 +105,7 @@ impl App {
                         Some(Ok(Event::Key(key_event))) if key_event.kind == KeyEventKind::Press => {
                             match key_event.code {
                                 KeyCode::Char(c) => {
-                                    if c.is_ascii_graphic() || c == ' ' {
+                                    if self.input.len() < protocol::MAX_TEXT_LEN && (c.is_ascii_graphic() || c == ' ') {
                                         self.input.insert(self.cursor_index, c);
                                         self.cursor_right();
                                     }

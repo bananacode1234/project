@@ -108,12 +108,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                     continue;
                                 }
 
-                                if framed.send(protocol::encode(Message::Nick(new.clone()))).await.is_err() || framed.send(protocol::encode(Message::Text(format!("[server] your nickname has been changed to {new}")))).await.is_err() {
+                                let old = std::mem::replace(&mut nickname, new);
+
+                                let _ = tx.send((format!("[server] {old} has changed their nickname to {nickname}"), Some(peer_addr)));
+
+                                if framed.send(protocol::encode(Message::Nick(nickname.clone()))).await.is_err() || framed.send(protocol::encode(Message::Text(format!("[server] your nickname has been changed to {nickname}")))).await.is_err() {
                                     break;
                                 }
-
-                                let _ = tx.send((format!("[server] {nickname} has changed their nickname to {new}"), Some(peer_addr)));
-                                nickname = new;
                             }
                         }
                     }

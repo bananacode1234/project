@@ -65,12 +65,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         match message {
                             ClientMessage::Ping => {}
                             ClientMessage::Text(msg) => {
-                                if msg.trim().is_empty() {
-                                    continue;
-                                }
-
                                 if msg.len() > protocol::MAX_TEXT_LEN || !msg.chars().all(|c| c.is_ascii_graphic() || c == ' ') {
                                     break;
+                                }
+
+                                if msg.trim().is_empty() {
+                                    continue;
                                 }
 
                                 let _ = tx.send((ServerMessage::Chat { from: nickname.clone(), text: msg }, None));

@@ -1,4 +1,4 @@
-use chat::protocol::{self, Message};
+use chat::protocol::{self, ClientMessage, ServerMessage};
 use futures::{SinkExt, StreamExt};
 use std::{collections::HashSet, sync::Arc};
 use tokio::{
@@ -16,7 +16,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("Listening on {addr}");
 
-    let (tx, _rx) = broadcast::channel::<(String, Option<std::net::SocketAddr>)>(32);
+    let (tx, _rx) = broadcast::channel::<(ServerMessage, Option<std::net::SocketAddr>)>(32);
 
     let nicknames = Arc::new(Mutex::new(HashSet::<String>::new()));
 
@@ -41,7 +41,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 nicknames.insert(nickname.to_lowercase());
             }
 
-            let _ = tx.send((format!("[server] {nickname} connected"), None));
+            let _ = tx.send((ServerMessage::Join(nickname.clone()), None));
 
             loop {
                 tokio::select! {
@@ -56,29 +56,29 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             break;
                         };
 
-                        let Ok(message) = protocol::decode(frame.freeze()) else {
+                        let Ok(message) = protocol::decode(&frame) else {
                             break;
                         };
 
                         last_seen = Instant::now();
 
                         match message {
-                            Message::Ping => {}
-                            Message::Text(msg) => {
+                            ClientMessage::Ping => {}
+                            ClientMessage::Text(msg) => {
                                 if msg.trim().is_empty() {
                                     continue;
                                 }
 
-                                let _ = tx.send((format!("<{nickname}> {msg}"), None));
+                                let _ = tx.send((ServerMessage::Chat { from: nickname.clone(), text: msg }, None));
                             }
-                            Message::Nick(new) => {
+                            ClientMessage::Nick(new) => {
                                 if new.to_lowercase() == nickname.to_lowercase() {
                                     continue;
                                 }
 
                                 if !(3..=20).contains(&new.len()) || new.chars().any(|c| !c.is_ascii_alphanumeric()) {
                                     if framed.send(protocol::encode(
-                                        Message::Text("[server] invalid nickname (3-20 letters/numbers only)".to_owned())
+                                        &ServerMessage::System("Invalid nickname (3-20 letters/numbers only)".to_owned())
                                     )).await.is_err() {
                                         break;
                                     }
@@ -99,7 +99,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 };
 
                                 if taken {
-                                    if framed.send(protocol::encode(Message::Text("[server] that nickname is taken".to_owned()))).await.is_err() {
+                                    if framed.send(protocol::encode(&ServerMessage::System("That nickname is taken".to_owned()))).await.is_err() {
                                         break;
                                     }
 
@@ -108,9 +108,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                                 let old = std::mem::replace(&mut nickname, new);
 
-                                let _ = tx.send((format!("[server] {old} has changed their nickname to {nickname}"), Some(peer_addr)));
+                                let _ = tx.send((ServerMessage::System(format!("{old} has changed their nickname to {nickname}")), Some(peer_addr)));
 
-                                if framed.send(protocol::encode(Message::Nick(nickname.clone()))).await.is_err() || framed.send(protocol::encode(Message::Text(format!("[server] your nickname has been changed to {nickname}")))).await.is_err() {
+                                if framed.send(protocol::encode(&ServerMessage::Nick(nickname.clone()))).await.is_err() {
                                     break;
                                 }
                             }
@@ -121,7 +121,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         let (msg, addr) = match result {
                             Ok(pair) => pair,
                             Err(broadcast::error::RecvError::Lagged(n)) => {
-                                if framed.send(protocol::encode(Message::Text(format!("[server] you missed {n} messages")))).await.is_err() {
+                                if framed.send(protocol::encode(&ServerMessage::System(format!("You missed {n} messages")))).await.is_err() {
                                     break;
                                 }
 
@@ -134,7 +134,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             continue;
                         }
 
-                        if framed.send(protocol::encode(Message::Text(msg))).await.is_err() {
+                        if framed.send(protocol::encode(&msg)).await.is_err() {
                             break;
                         }
                     }
@@ -147,7 +147,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
 
             println!("{peer_addr} disconnected");
-            let _ = tx.send((format!("[server] {nickname} disconnected"), Some(peer_addr)));
+            let _ = tx.send((ServerMessage::Leave(nickname), None));
         });
     }
 }

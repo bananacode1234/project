@@ -1,4 +1,4 @@
-use chat::protocol::{self, Message};
+use chat::protocol::{self, ClientMessage, ServerMessage};
 use crossterm::event::{Event, EventStream, KeyCode, KeyEventKind};
 use futures::{SinkExt, StreamExt};
 use ratatui::{
@@ -69,7 +69,7 @@ impl App {
             terminal.draw(|frame| self.render(frame))?;
             tokio::select! {
                 _ = heartbeat_timer.tick() => {
-                    if framed.send(protocol::encode(Message::Ping)).await.is_err() {
+                    if framed.send(protocol::encode(&ClientMessage::Ping)).await.is_err() {
                         break;
                     }
                 }
@@ -78,17 +78,25 @@ impl App {
                         break;
                     };
 
-                    let Ok(message) = protocol::decode(frame.freeze()) else {
+                    let Ok(message) = protocol::decode(&frame) else {
                         break;
                     };
 
                     match message {
-                        Message::Ping => {}
-                        Message::Text(msg) => {
-                            self.messages.push(msg);
+                        ServerMessage::Chat { from, text } => {
+                            self.messages.push(format!("<{from}> {text}"));
                         }
-                        Message::Nick(new) => {
+                        ServerMessage::Nick(new) => {
                             self.nickname = new;
+                        }
+                        ServerMessage::System(msg) => {
+                            self.messages.push(format!("[server] {msg}"));
+                        }
+                        ServerMessage::Join(nick) => {
+                            self.messages.push(format!("{nick} has joined"));
+                        }
+                        ServerMessage::Leave(nick) => {
+                            self.messages.push(format!("{nick} has left"));
                         }
                     }
                 }
@@ -137,7 +145,7 @@ impl App {
                                                     continue;
                                                 };
 
-                                                if framed.send(protocol::encode(Message::Nick(nick.to_owned()))).await.is_err() {
+                                                if framed.send(protocol::encode(&ClientMessage::Nick(nick.to_owned()))).await.is_err() {
                                                     break;
                                                 }
                                             }
@@ -149,7 +157,7 @@ impl App {
                                         continue;
                                     }
 
-                                    if framed.send(protocol::encode(Message::Text(line))).await.is_err() {
+                                    if framed.send(protocol::encode(&ClientMessage::Text(line))).await.is_err() {
                                         break;
                                     }
                                 }

@@ -1,17 +1,26 @@
 use bytes::Bytes;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
-#[derive(Serialize, Deserialize)]
-pub enum Message {
+#[derive(Serialize, Deserialize, Clone)]
+pub enum ClientMessage {
     Ping,
     Text(String),
     Nick(String),
 }
 
-pub fn encode(message: Message) -> Bytes {
-    postcard::to_allocvec(&message).unwrap().into()
+#[derive(Serialize, Deserialize, Clone)]
+pub enum ServerMessage {
+    Chat { from: String, text: String },
+    Nick(String),
+    System(String),
+    Join(String),
+    Leave(String),
 }
 
-pub fn decode(bytes: Bytes) -> Result<Message, Box<dyn std::error::Error>> {
-    Ok(postcard::from_bytes(&bytes)?)
+pub fn encode<T: Serialize>(message: &T) -> Bytes {
+    postcard::to_allocvec(message).unwrap().into()
+}
+
+pub fn decode<T: DeserializeOwned>(bytes: &[u8]) -> Result<T, postcard::Error> {
+    postcard::from_bytes(bytes)
 }

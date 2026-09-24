@@ -1,5 +1,5 @@
 use chat::protocol::{self, ClientMessage, ServerMessage};
-use crossterm::event::{Event, EventStream, KeyCode, KeyEventKind};
+use crossterm::event::{Event, EventStream, KeyCode, KeyEventKind, KeyModifiers};
 use futures::{SinkExt, StreamExt};
 use ratatui::{
     DefaultTerminal, Frame,
@@ -104,6 +104,22 @@ impl App {
                 result = event_stream.next() => {
                     match result {
                         Some(Ok(Event::Key(key_event))) if key_event.kind == KeyEventKind::Press => {
+                            if key_event.modifiers.contains(KeyModifiers::CONTROL) {
+                                match key_event.code {
+                                    KeyCode::Char('l') => self.messages.clear(),
+                                    KeyCode::Char('u') => {
+                                        self.input.clear();
+                                        self.cursor_index = 0;
+                                    }
+                                    KeyCode::Char('a') => self.cursor_index = 0,
+                                    KeyCode::Char('e') => self.cursor_index = self.input.len(),
+                                    KeyCode::Char('k') => self.input.truncate(self.cursor_index),
+                                    _ => {}
+                                }
+
+                                continue;
+                            }
+
                             match key_event.code {
                                 KeyCode::Char(c) => {
                                     if self.input.len() < protocol::MAX_TEXT_LEN && (c.is_ascii_graphic() || c == ' ') {
@@ -208,6 +224,7 @@ impl App {
             input_area,
         );
 
+        // cursor positioning
         frame.set_cursor_position(Position::new(
             input_area
                 .x

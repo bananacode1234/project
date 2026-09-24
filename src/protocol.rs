@@ -5,14 +5,14 @@ use tokio_util::codec::LengthDelimitedCodec;
 const MAX_FRAME_LEN: usize = 1024;
 pub const MAX_TEXT_LEN: usize = 500;
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub enum ClientMessage {
     Ping,
     Text(String),
     Nick(String),
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub enum ServerMessage {
     Chat { from: String, text: String },
     Nick(String),

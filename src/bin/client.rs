@@ -22,9 +22,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     ratatui::restore();
 
-    result?;
-
-    Ok(())
+    result
 }
 
 struct App {
@@ -58,7 +56,7 @@ impl App {
     ) -> Result<(), Box<dyn std::error::Error>> {
         let addr = std::env::args()
             .nth(1)
-            .unwrap_or(String::from("127.0.0.1:8080"));
+            .unwrap_or("127.0.0.1:8080".to_owned());
 
         let socket = TcpStream::connect(&addr).await?;
         let mut framed = Framed::new(socket, LengthDelimitedCodec::new());
@@ -85,7 +83,7 @@ impl App {
                     };
 
                     match message {
-                        Message::Ping => {},
+                        Message::Ping => {}
                         Message::Text(msg) => {
                             self.messages.push(msg);
                         }
@@ -143,9 +141,9 @@ impl App {
                                                     break;
                                                 }
                                             }
-                                            Some("exit") | Some("quit") => break,
+                                            Some("exit" | "quit") => break,
                                             Some(cmd) => self.messages.push(format!("Unknown command: /{cmd}")),
-                                            None => {},
+                                            None => {}
                                         }
 
                                         continue;
@@ -155,11 +153,11 @@ impl App {
                                         break;
                                     }
                                 }
-                                _ => {},
+                                _ => {}
                             }
                         }
                         Some(Err(_)) | None => break,
-                        _ => {},
+                        _ => {}
                     }
                 }
             }
@@ -173,12 +171,12 @@ impl App {
 
         // messages widget
         frame.render_widget(
-            Paragraph::new(self.messages.iter().map(|m| m.as_str()).collect::<Text>())
+            Paragraph::new(self.messages.iter().map(String::as_str).collect::<Text>())
                 .scroll((
                     self.messages
                         .len()
                         .try_into()
-                        .unwrap_or(0_u16)
+                        .unwrap_or(u16::MAX)
                         .saturating_sub(messages_area.height.saturating_sub(2)),
                     0,
                 ))
@@ -188,13 +186,19 @@ impl App {
 
         // input widget
         frame.render_widget(
-            Paragraph::new(Line::from(self.input.iter().collect::<String>()))
-                .block(Block::bordered().title(Line::from(self.nickname.clone()))),
+            Paragraph::new(Line::from(format!(
+                "> {}",
+                self.input.iter().collect::<String>()
+            )))
+            .block(Block::bordered().title(Line::from(self.nickname.as_str()))),
             input_area,
         );
 
         frame.set_cursor_position(Position::new(
-            input_area.x + self.cursor_index as u16 + 1,
+            input_area
+                .x
+                .saturating_add(self.cursor_index.try_into().unwrap_or(u16::MAX))
+                .saturating_add(3),
             input_area.y + 1,
         ));
     }

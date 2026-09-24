@@ -10,9 +10,7 @@ use tokio_util::codec::{Framed, LengthDelimitedCodec};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let addr = std::env::args()
-        .nth(1)
-        .unwrap_or(String::from("0.0.0.0:8080"));
+    let addr = std::env::args().nth(1).unwrap_or("0.0.0.0:8080".to_owned());
 
     let listener = TcpListener::bind(&addr).await?;
 
@@ -24,7 +22,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     loop {
         let (socket, peer_addr) = listener.accept().await?;
-        println!("{} connected", peer_addr);
+        println!("{peer_addr} connected");
 
         let tx = tx.clone();
         let mut rx = tx.subscribe();
@@ -65,7 +63,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         last_seen = Instant::now();
 
                         match message {
-                            Message::Ping => {},
+                            Message::Ping => {}
                             Message::Text(msg) => {
                                 if msg.trim().is_empty() {
                                     continue;
@@ -121,8 +119,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     result = rx.recv() => {
                         // broadcast message -> client
                         let (msg, addr) = match result {
-                            Ok((msg, addr)) => (msg, addr),
-                            Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
+                            Ok(pair) => pair,
+                            Err(broadcast::error::RecvError::Lagged(n)) => {
                                 if framed.send(protocol::encode(Message::Text(format!("[server] you missed {n} messages")))).await.is_err() {
                                     break;
                                 }
@@ -148,7 +146,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 nicknames.remove(&nickname.to_lowercase());
             }
 
-            println!("{} disconnected", peer_addr);
+            println!("{peer_addr} disconnected");
             let _ = tx.send((format!("[server] {nickname} disconnected"), Some(peer_addr)));
         });
     }

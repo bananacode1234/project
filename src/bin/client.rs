@@ -152,6 +152,9 @@ impl App {
                                                     break;
                                                 }
                                             }
+                                            Some("clear") => {
+                                                self.messages.clear();
+                                            }
                                             Some("exit" | "quit") => break,
                                             Some(cmd) => self.messages.push(format!("Unknown command: /{cmd}")),
                                             None => {}

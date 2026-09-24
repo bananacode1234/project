@@ -87,6 +87,7 @@ impl App {
                             self.messages.push(format!("<{from}> {text}"));
                         }
                         ServerMessage::Nick(new) => {
+                            self.messages.push(format!("Your nickname has been changed to {new}"));
                             self.nickname = new;
                         }
                         ServerMessage::System(msg) => {

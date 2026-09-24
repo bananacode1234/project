@@ -173,21 +173,16 @@ impl App {
 
         // messages widget
         frame.render_widget(
-            Paragraph::new(
-                self.messages
-                    .iter()
-                    .map(|m| m.to_string())
-                    .collect::<Text>(),
-            )
-            .scroll((
-                self.messages
-                    .len()
-                    .try_into()
-                    .unwrap_or(0_u16)
-                    .saturating_sub(messages_area.height.saturating_sub(2)),
-                0,
-            ))
-            .block(Block::bordered().title(Line::from(" Chat App ").bold().centered())),
+            Paragraph::new(self.messages.iter().map(|m| m.as_str()).collect::<Text>())
+                .scroll((
+                    self.messages
+                        .len()
+                        .try_into()
+                        .unwrap_or(0_u16)
+                        .saturating_sub(messages_area.height.saturating_sub(2)),
+                    0,
+                ))
+                .block(Block::bordered().title(Line::from(" Chat App ").bold().centered())),
             messages_area,
         );
 

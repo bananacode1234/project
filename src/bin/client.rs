@@ -105,8 +105,10 @@ impl App {
                         Some(Ok(Event::Key(key_event))) if key_event.kind == KeyEventKind::Press => {
                             match key_event.code {
                                 KeyCode::Char(c) => {
-                                    self.input.insert(self.cursor_index, c);
-                                    self.cursor_right();
+                                    if c.is_ascii_graphic() || c == ' ' {
+                                        self.input.insert(self.cursor_index, c);
+                                        self.cursor_right();
+                                    }
                                 }
                                 KeyCode::Backspace => {
                                     if self.cursor_index != 0 {

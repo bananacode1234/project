@@ -69,6 +69,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                     continue;
                                 }
 
+                                if !msg.chars().all(|c| c.is_ascii_graphic() || c == ' ') {
+                                    break;
+                                }
+
                                 let _ = tx.send((ServerMessage::Chat { from: nickname.clone(), text: msg }, None));
                             }
                             ClientMessage::Nick(new) => {

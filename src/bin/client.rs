@@ -6,7 +6,7 @@ use ratatui::{
     layout::{Constraint, Layout, Position},
     style::Stylize,
     text::{Line, Text},
-    widgets::{Block, Paragraph},
+    widgets::{Block, Paragraph, Wrap},
 };
 use tokio::{
     net::TcpStream,
@@ -196,11 +196,23 @@ impl App {
     }
 
     fn render(&self, frame: &mut Frame) {
+        let area = frame.area();
+
+        // input widget
+        let input_widget = Paragraph::new(Line::from(self.input.iter().collect::<String>()))
+            .wrap(Wrap { trim: true })
+            .block(Block::bordered().title(Line::from(self.nickname.as_str())));
+
+        let inner_width = area.width.saturating_sub(2);
+        let rows = input_widget.line_count(inner_width).max(1) as u16;
+        let input_height = rows.min(area.height / 2);
+
+        // layout
         let [messages_area, input_area] =
-            Layout::vertical([Constraint::Fill(1), Constraint::Length(3)]).areas(frame.area());
+            Layout::vertical([Constraint::Fill(1), Constraint::Length(input_height)]).areas(area);
 
         // messages widget
-        frame.render_widget(
+        let messages_widget =
             Paragraph::new(self.messages.iter().map(String::as_str).collect::<Text>())
                 .scroll((
                     self.messages
@@ -210,27 +222,16 @@ impl App {
                         .saturating_sub(messages_area.height.saturating_sub(2)),
                     0,
                 ))
-                .block(Block::bordered().title(Line::from(" Chat App ").bold().centered())),
-            messages_area,
-        );
+                .block(Block::bordered().title(Line::from(" Chat App ").bold().centered()));
 
-        // input widget
-        frame.render_widget(
-            Paragraph::new(Line::from(format!(
-                "> {}",
-                self.input.iter().collect::<String>()
-            )))
-            .block(Block::bordered().title(Line::from(self.nickname.as_str()))),
-            input_area,
-        );
+        // render widgets
+        frame.render_widget(messages_widget, messages_area);
+        frame.render_widget(input_widget, input_area);
 
         // cursor positioning
         frame.set_cursor_position(Position::new(
-            input_area
-                .x
-                .saturating_add(self.cursor_index.try_into().unwrap_or(u16::MAX))
-                .saturating_add(3),
-            input_area.y + 1,
+            input_area.x + 1 + self.cursor_index as u16 % inner_width,
+            input_area.y + 1 + self.cursor_index as u16 / inner_width,
         ));
     }
 }

@@ -4,7 +4,7 @@ use futures::{SinkExt, StreamExt};
 use ratatui::{
     DefaultTerminal, Frame,
     layout::{Constraint, Layout, Position},
-    style::Stylize,
+    style::{Style, Stylize},
     text::{Line, Text},
     widgets::{Block, Paragraph, Wrap},
 };
@@ -199,9 +199,25 @@ impl App {
         let area = frame.area();
 
         // input widget
+        let input_count = if self.input.len() * 10 >= protocol::MAX_TEXT_LEN * 9 {
+            Line::from(format!("{}/{}", self.input.len(), protocol::MAX_TEXT_LEN)).style(
+                if self.input.len() >= protocol::MAX_TEXT_LEN {
+                    Style::new().red()
+                } else {
+                    Style::default()
+                },
+            )
+        } else {
+            Line::default()
+        };
+
         let input_widget = Paragraph::new(Line::from(self.input.iter().collect::<String>()))
             .wrap(Wrap { trim: true })
-            .block(Block::bordered().title(Line::from(self.nickname.as_str())));
+            .block(
+                Block::bordered()
+                    .title(self.nickname.as_str())
+                    .title(input_count.right_aligned()),
+            );
 
         let inner_width = area.width.saturating_sub(2);
         let rows = input_widget.line_count(inner_width).max(1) as u16;

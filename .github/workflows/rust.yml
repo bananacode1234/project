@@ -23,4 +23,7 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: windows-gnu-release
-        path: target/x86_64-pc-windows-gnu/release/
+        path: |
+          target/x86_64-pc-windows-gnu/release/client.exe
+          target/x86_64-pc-windows-gnu/release/server.exe
+        if-no-files-found: error

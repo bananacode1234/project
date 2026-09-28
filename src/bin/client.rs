@@ -228,17 +228,18 @@ impl App {
             Layout::vertical([Constraint::Fill(1), Constraint::Length(input_height)]).areas(area);
 
         // messages widget
-        let messages_widget =
-            Paragraph::new(self.messages.iter().map(String::as_str).collect::<Text>())
-                .scroll((
-                    self.messages
-                        .len()
-                        .try_into()
-                        .unwrap_or(u16::MAX)
-                        .saturating_sub(messages_area.height.saturating_sub(2)),
-                    0,
-                ))
-                .block(Block::bordered().title(Line::from(" Chat App ").bold().centered()));
+        let first_visible = self
+            .messages
+            .len()
+            .saturating_sub(messages_area.height.saturating_sub(2).into());
+
+        let messages_widget = Paragraph::new(
+            self.messages[first_visible..]
+                .iter()
+                .map(String::as_str)
+                .collect::<Text>(),
+        )
+        .block(Block::bordered().title(Line::from(" Chat App ").bold().centered()));
 
         // render widgets
         frame.render_widget(messages_widget, messages_area);

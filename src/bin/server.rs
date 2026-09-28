@@ -27,7 +27,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let tx = tx.clone();
         let mut rx = tx.subscribe();
 
-        let set = Arc::clone(&nicknames);
+        let nicknames = Arc::clone(&nicknames);
         tokio::spawn(async move {
             let mut framed = Framed::new(socket, protocol::codec());
 
@@ -37,8 +37,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let mut nickname = peer_addr.to_string();
 
             {
-                let mut nicknames = set.lock().await;
-                nicknames.insert(nickname.to_lowercase());
+                let mut guard = nicknames.lock().await;
+                guard.insert(nickname.to_lowercase());
             }
 
             let _ = tx.send((ServerMessage::Join(nickname.clone()), None));
@@ -95,15 +95,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 }
 
                                 let taken = {
-                                    let mut nicknames = set.lock().await;
+                                    let mut guard = nicknames.lock().await;
 
                                     if nickname.to_lowercase() == new.to_lowercase() {
                                         false
-                                    } else if nicknames.contains(&new.to_lowercase()) {
+                                    } else if guard.contains(&new.to_lowercase()) {
                                         true
                                     } else {
-                                        nicknames.insert(new.to_lowercase());
-                                        nicknames.remove(&nickname.to_lowercase());
+                                        guard.insert(new.to_lowercase());
+                                        guard.remove(&nickname.to_lowercase());
                                         false
                                     }
                                 };
@@ -152,8 +152,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
 
             {
-                let mut nicknames = set.lock().await;
-                nicknames.remove(&nickname.to_lowercase());
+                let mut guard = nicknames.lock().await;
+                guard.remove(&nickname.to_lowercase());
             }
 
             println!("{peer_addr} disconnected");

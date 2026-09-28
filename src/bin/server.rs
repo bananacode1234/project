@@ -76,7 +76,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 let _ = tx.send((ServerMessage::Chat { from: nickname.clone(), text: msg }, None));
                             }
                             ClientMessage::Nick(new) => {
-                                if new.to_lowercase() == nickname.to_lowercase() {
+                                if new == nickname {
+                                    if framed.send(protocol::encode(&ServerMessage::System("That is already your nickname".to_owned()))).await.is_err() {
+                                        break;
+                                    }
+
                                     continue;
                                 }
 
@@ -93,7 +97,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 let taken = {
                                     let mut nicknames = set.lock().await;
 
-                                    if nicknames.contains(&new.to_lowercase()) {
+                                    if nickname.to_lowercase() == new.to_lowercase() {
+                                        false
+                                    } else if nicknames.contains(&new.to_lowercase()) {
                                         true
                                     } else {
                                         nicknames.insert(new.to_lowercase());

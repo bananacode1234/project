@@ -219,7 +219,7 @@ impl App {
                     .title(input_count.right_aligned()),
             );
 
-        let inner_width = area.width.saturating_sub(2);
+        let inner_width = area.width.saturating_sub(2).max(1);
         let rows = input_widget.line_count(inner_width).max(1) as u16;
         let input_height = rows.min(area.height / 2);
 

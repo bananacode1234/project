@@ -14,6 +14,9 @@ use tokio::{
 };
 use tokio_util::codec::Framed;
 
+const MIN_WIDTH: u16 = 40;
+const MIN_HEIGHT: u16 = 10;
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let terminal = ratatui::init();
@@ -104,6 +107,11 @@ impl App {
                 result = event_stream.next() => {
                     match result {
                         Some(Ok(Event::Key(key_event))) if key_event.kind == KeyEventKind::Press => {
+                            let size = terminal.size()?;
+                            if size.width < MIN_WIDTH || size.height < MIN_HEIGHT {
+                                continue;
+                            }
+
                             if key_event.modifiers.contains(KeyModifiers::CONTROL) {
                                 match key_event.code {
                                     KeyCode::Char('l') => self.messages.clear(),
@@ -197,6 +205,23 @@ impl App {
 
     fn render(&self, frame: &mut Frame) {
         let area = frame.area();
+
+        if area.width < MIN_WIDTH || area.height < MIN_HEIGHT {
+            let notice = Text::from(vec![
+                Line::from("Terminal too small").bold(),
+                Line::from(format!(
+                    "Need {MIN_WIDTH}x{MIN_HEIGHT}, have {}x{}",
+                    area.width, area.height,
+                )),
+            ]);
+
+            frame.render_widget(
+                Paragraph::new(notice).centered(),
+                area.centered_vertically(Constraint::Length(2)),
+            );
+
+            return;
+        }
 
         // input widget
         let input_count = if self.input.len() * 10 >= protocol::MAX_TEXT_LEN * 9 {

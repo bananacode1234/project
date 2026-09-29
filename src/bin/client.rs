@@ -6,7 +6,7 @@ use ratatui::{
     layout::{Constraint, Layout, Position},
     style::{Style, Stylize},
     text::{Line, Text},
-    widgets::{Block, Paragraph, Wrap},
+    widgets::{Block, Paragraph},
 };
 use tokio::{
     net::TcpStream,
@@ -51,6 +51,19 @@ impl App {
 
     fn cursor_right(&mut self) {
         self.cursor_index = (self.cursor_index + 1).min(self.input.len());
+    }
+
+    fn wrap_chars(s: &str, width: usize) -> Vec<Line<'static>> {
+        let chars: Vec<char> = s.chars().collect();
+
+        if chars.is_empty() {
+            return vec![Line::default()];
+        }
+
+        chars
+            .chunks(width.max(1))
+            .map(|c| Line::from(c.iter().collect::<String>()))
+            .collect()
     }
 
     async fn run(
@@ -228,6 +241,8 @@ impl App {
             return;
         }
 
+        let inner_width = area.width.saturating_sub(2).max(1);
+
         // input widget
         let input_count = if self.input.len() * 10 >= protocol::MAX_TEXT_LEN * 9 {
             Line::from(format!("{}/{}", self.input.len(), protocol::MAX_TEXT_LEN)).style(
@@ -241,35 +256,37 @@ impl App {
             Line::default()
         };
 
-        let input_widget = Paragraph::new(Line::from(self.input.iter().collect::<String>()))
-            .wrap(Wrap { trim: true })
-            .block(
-                Block::bordered()
-                    .title(self.nickname.as_str())
-                    .title(input_count.right_aligned()),
-            );
+        let wrapped_input =
+            App::wrap_chars(&self.input.iter().collect::<String>(), inner_width.into());
 
-        let inner_width = area.width.saturating_sub(2).max(1);
-        let rows = input_widget.line_count(inner_width).max(1) as u16;
+        let rows = wrapped_input.len().max(1).saturating_add(2) as u16;
         let input_height = rows.min(area.height / 2);
+
+        let input_widget = Paragraph::new(wrapped_input).block(
+            Block::bordered()
+                .title(self.nickname.as_str())
+                .title(input_count.right_aligned()),
+        );
 
         // layout
         let [messages_area, input_area] =
             Layout::vertical([Constraint::Fill(1), Constraint::Length(input_height)]).areas(area);
 
         // messages widget
-        let first_visible = self
-            .messages
-            .len()
-            .saturating_sub(messages_area.height.saturating_sub(2).into());
+        let messages_height = messages_area.height.saturating_sub(2).max(1);
 
-        let messages_widget = Paragraph::new(
-            self.messages[first_visible..]
-                .iter()
-                .map(String::as_str)
-                .collect::<Text>(),
-        )
-        .block(Block::bordered().title(Line::from(" Chat App ").bold().centered()));
+        let wrapped_messages = self
+            .messages
+            .iter()
+            .flat_map(|s| App::wrap_chars(s, inner_width.into()))
+            .collect::<Vec<Line>>();
+
+        let first_visible = wrapped_messages
+            .len()
+            .saturating_sub(messages_height.into());
+
+        let messages_widget = Paragraph::new(&wrapped_messages[first_visible..])
+            .block(Block::bordered().title(Line::from(" Chat App ").bold().centered()));
 
         // render widgets
         frame.render_widget(messages_widget, messages_area);

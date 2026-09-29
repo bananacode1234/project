@@ -107,6 +107,10 @@ impl App {
                 result = event_stream.next() => {
                     match result {
                         Some(Ok(Event::Key(key_event))) if key_event.kind == KeyEventKind::Press => {
+                            if key_event.modifiers.contains(KeyModifiers::CONTROL) && key_event.code == KeyCode::Char('c') {
+                                break;
+                            }
+
                             let size = terminal.size()?;
                             if size.width < MIN_WIDTH || size.height < MIN_HEIGHT {
                                 continue;
@@ -213,11 +217,12 @@ impl App {
                     "Need {MIN_WIDTH}x{MIN_HEIGHT}, have {}x{}",
                     area.width, area.height,
                 )),
+                Line::from("Ctrl+C to exit").gray(),
             ]);
 
             frame.render_widget(
                 Paragraph::new(notice).centered(),
-                area.centered_vertically(Constraint::Length(2)),
+                area.centered_vertically(Constraint::Length(3)),
             );
 
             return;

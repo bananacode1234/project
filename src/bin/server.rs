@@ -1,9 +1,12 @@
 use chat::protocol::{self, ClientMessage, ServerMessage};
 use futures::{SinkExt, StreamExt};
-use std::{collections::HashSet, sync::Arc};
+use std::{
+    collections::HashSet,
+    sync::{Arc, Mutex},
+};
 use tokio::{
     net::TcpListener,
-    sync::{Mutex, broadcast},
+    sync::broadcast,
     time::{Duration, Instant, interval},
 };
 use tokio_util::codec::Framed;
@@ -37,7 +40,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let mut nickname = peer_addr.to_string();
 
             {
-                let mut guard = nicknames.lock().await;
+                let mut guard = nicknames.lock().unwrap();
                 guard.insert(nickname.to_lowercase());
             }
 
@@ -95,7 +98,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 }
 
                                 let taken = {
-                                    let mut guard = nicknames.lock().await;
+                                    let mut guard = nicknames.lock().unwrap();
 
                                     if nickname.to_lowercase() == new.to_lowercase() {
                                         false
@@ -152,7 +155,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
 
             {
-                let mut guard = nicknames.lock().await;
+                let mut guard = nicknames.lock().unwrap();
                 guard.remove(&nickname.to_lowercase());
             }
 

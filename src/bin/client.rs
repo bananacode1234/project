@@ -72,7 +72,7 @@ impl App {
     ) -> Result<(), Box<dyn std::error::Error>> {
         let addr = std::env::args()
             .nth(1)
-            .unwrap_or("127.0.0.1:8080".to_owned());
+            .unwrap_or_else(|| "127.0.0.1:8080".to_owned());
 
         let socket = TcpStream::connect(&addr).await?;
         let mut framed = Framed::new(socket, protocol::codec());

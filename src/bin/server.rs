@@ -13,7 +13,9 @@ use tokio_util::codec::Framed;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let addr = std::env::args().nth(1).unwrap_or("0.0.0.0:8080".to_owned());
+    let addr = std::env::args()
+        .nth(1)
+        .unwrap_or_else(|| "0.0.0.0:8080".to_owned());
 
     let listener = TcpListener::bind(&addr).await?;
 

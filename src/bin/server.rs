@@ -7,7 +7,7 @@ use std::{
 use tokio::{
     net::TcpListener,
     sync::broadcast,
-    time::{Duration, Instant, interval},
+    time::{Instant, interval},
 };
 use tokio_util::codec::Framed;
 
@@ -36,7 +36,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         tokio::spawn(async move {
             let mut framed = Framed::new(socket, protocol::codec());
 
-            let mut heartbeat_timer = interval(Duration::from_secs(10));
+            let mut heartbeat_timer = interval(protocol::HEARTBEAT_INTERVAL);
             let mut last_seen = Instant::now();
 
             let mut nickname = peer_addr.to_string();
@@ -51,7 +51,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             loop {
                 tokio::select! {
                     _ = heartbeat_timer.tick() => {
-                        if last_seen.elapsed() > Duration::from_secs(40) {
+                        if last_seen.elapsed() > protocol::HEARTBEAT_TIMEOUT || framed.send(protocol::encode(&ServerMessage::Ping)).await.is_err() {
                             break;
                         }
                     }
@@ -68,7 +68,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         last_seen = Instant::now();
 
                         match message {
-                            ClientMessage::Ping => {}
+                            ClientMessage::Pong => {}
                             ClientMessage::Text(msg) => {
                                 if msg.len() > protocol::MAX_TEXT_LEN || !msg.chars().all(|c| c.is_ascii_graphic() || c == ' ') {
                                     break;

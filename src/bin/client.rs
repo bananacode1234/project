@@ -10,7 +10,7 @@ use ratatui::{
 };
 use tokio::{
     net::TcpStream,
-    time::{Duration, interval},
+    time::{Instant, interval},
 };
 use tokio_util::codec::Framed;
 
@@ -77,7 +77,8 @@ impl App {
         let socket = TcpStream::connect(&addr).await?;
         let mut framed = Framed::new(socket, protocol::codec());
 
-        let mut heartbeat_timer = interval(Duration::from_secs(15));
+        let mut heartbeat_timer = interval(protocol::HEARTBEAT_INTERVAL);
+        let mut last_seen = Instant::now();
 
         let mut event_stream = EventStream::new();
 
@@ -85,7 +86,7 @@ impl App {
             terminal.draw(|frame| self.render(frame))?;
             tokio::select! {
                 _ = heartbeat_timer.tick() => {
-                    if framed.send(protocol::encode(&ClientMessage::Ping)).await.is_err() {
+                    if last_seen.elapsed() > protocol::HEARTBEAT_TIMEOUT {
                         break;
                     }
                 }
@@ -97,6 +98,8 @@ impl App {
                     let Ok(message) = protocol::decode(&frame) else {
                         break;
                     };
+
+                    last_seen = Instant::now();
 
                     match message {
                         ServerMessage::Chat { from, text } => {
@@ -114,6 +117,11 @@ impl App {
                         }
                         ServerMessage::Leave(nick) => {
                             self.messages.push(format!("{nick} has left"));
+                        }
+                        ServerMessage::Ping => {
+                            if framed.send(protocol::encode(&ClientMessage::Pong)).await.is_err() {
+                                break;
+                            }
                         }
                     }
                 }

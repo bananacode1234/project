@@ -1,13 +1,17 @@
 use bytes::Bytes;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
+use std::time::Duration;
 use tokio_util::codec::LengthDelimitedCodec;
 
 const MAX_FRAME_LEN: usize = 1024;
 pub const MAX_TEXT_LEN: usize = 500;
 
+pub const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(10);
+pub const HEARTBEAT_TIMEOUT: Duration = Duration::from_secs(40);
+
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub enum ClientMessage {
-    Ping,
+    Pong,
     Text(String),
     Nick(String),
 }
@@ -19,6 +23,7 @@ pub enum ServerMessage {
     System(String),
     Join(String),
     Leave(String),
+    Ping,
 }
 
 pub fn encode<T: Serialize>(message: &T) -> Bytes {

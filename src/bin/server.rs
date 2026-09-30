@@ -100,16 +100,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 }
 
                                 let taken = {
+                                    let old_key = nickname.to_lowercase();
+                                    let new_key = new.to_lowercase();
+
                                     let mut guard = nicknames.lock().unwrap();
 
-                                    if nickname.to_lowercase() == new.to_lowercase() {
+                                    if old_key == new_key {
                                         false
-                                    } else if guard.contains(&new.to_lowercase()) {
-                                        true
+                                    } else if guard.insert(new_key) {
+                                        guard.remove(&old_key);
+                                        false
                                     } else {
-                                        guard.insert(new.to_lowercase());
-                                        guard.remove(&nickname.to_lowercase());
-                                        false
+                                        true
                                     }
                                 };
 

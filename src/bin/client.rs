@@ -270,11 +270,15 @@ impl App {
         let rows = wrapped_input.len().max(1).saturating_add(2) as u16;
         let input_height = rows.min(area.height / 2);
 
-        let input_widget = Paragraph::new(wrapped_input).block(
-            Block::bordered()
-                .title(self.nickname.as_str())
-                .title(input_count.right_aligned()),
-        );
+        let input_scroll = rows.saturating_sub(input_height);
+
+        let input_widget = Paragraph::new(wrapped_input)
+            .block(
+                Block::bordered()
+                    .title(self.nickname.as_str())
+                    .title(input_count.right_aligned()),
+            )
+            .scroll((input_scroll, 0));
 
         // layout
         let [messages_area, input_area] =
@@ -303,7 +307,9 @@ impl App {
         // cursor positioning
         frame.set_cursor_position(Position::new(
             input_area.x + 1 + self.cursor_index as u16 % inner_width,
-            input_area.y + 1 + self.cursor_index as u16 / inner_width,
+            input_area.y
+                + 1
+                + (self.cursor_index as u16 / inner_width).saturating_sub(input_scroll),
         ));
     }
 }

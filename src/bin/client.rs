@@ -265,7 +265,7 @@ impl App {
         };
 
         let input_lines =
-            App::wrap_chars(&self.input.iter().collect::<String>(), inner_width.into());
+            Self::wrap_chars(&self.input.iter().collect::<String>(), inner_width.into());
 
         let cursor_col = self.cursor_index as u16 % inner_width;
         let cursor_row = self.cursor_index as u16 / inner_width;
@@ -294,7 +294,7 @@ impl App {
         let messages_lines = self
             .messages
             .iter()
-            .flat_map(|s| App::wrap_chars(s, inner_width.into()))
+            .flat_map(|s| Self::wrap_chars(s, inner_width.into()))
             .collect::<Vec<Line>>();
 
         let first_visible_line = messages_lines

@@ -132,8 +132,8 @@ impl App {
                                 break;
                             }
 
-                            let size = terminal.size()?;
-                            if size.width < MIN_WIDTH || size.height < MIN_HEIGHT {
+                            let terminal_size = terminal.size()?;
+                            if terminal_size.width < MIN_WIDTH || terminal_size.height < MIN_HEIGHT {
                                 continue;
                             }
 
@@ -252,7 +252,7 @@ impl App {
         let inner_width = area.width - 2;
 
         // input widget
-        let input_count = if self.input.len() * 10 >= protocol::MAX_TEXT_LEN * 9 {
+        let length_indicator = if self.input.len() * 10 >= protocol::MAX_TEXT_LEN * 9 {
             Line::from(format!("{}/{}", self.input.len(), protocol::MAX_TEXT_LEN)).style(
                 if self.input.len() >= protocol::MAX_TEXT_LEN {
                     Style::new().red()
@@ -264,25 +264,23 @@ impl App {
             Line::default()
         };
 
-        let wrapped_input =
+        let input_lines =
             App::wrap_chars(&self.input.iter().collect::<String>(), inner_width.into());
 
-        let cursor_pos = Position::new(
-            self.cursor_index as u16 % inner_width,
-            self.cursor_index as u16 / inner_width,
-        );
+        let cursor_col = self.cursor_index as u16 % inner_width;
+        let cursor_row = self.cursor_index as u16 / inner_width;
 
-        let rows = (wrapped_input.len() as u16).max(cursor_pos.y + 1);
-        let input_height = (rows + 2).min(area.height / 2);
-        let visible_rows = input_height - 2;
+        let input_rows = (input_lines.len() as u16).max(cursor_row + 1);
+        let input_height = (input_rows + 2).min(area.height / 2);
+        let visible_input_rows = input_height - 2;
 
-        let input_scroll = (cursor_pos.y + 1).saturating_sub(visible_rows);
+        let input_scroll = (cursor_row + 1).saturating_sub(visible_input_rows);
 
-        let input_widget = Paragraph::new(wrapped_input)
+        let input_widget = Paragraph::new(input_lines)
             .block(
                 Block::bordered()
                     .title(self.nickname.as_str())
-                    .title(input_count.right_aligned()),
+                    .title(length_indicator.right_aligned()),
             )
             .scroll((input_scroll, 0));
 
@@ -291,19 +289,19 @@ impl App {
             Layout::vertical([Constraint::Fill(1), Constraint::Length(input_height)]).areas(area);
 
         // messages widget
-        let messages_height = messages_area.height - 2;
+        let visible_message_rows = messages_area.height - 2;
 
-        let wrapped_messages = self
+        let messages_lines = self
             .messages
             .iter()
             .flat_map(|s| App::wrap_chars(s, inner_width.into()))
             .collect::<Vec<Line>>();
 
-        let first_visible = wrapped_messages
+        let first_visible_line = messages_lines
             .len()
-            .saturating_sub(messages_height.into());
+            .saturating_sub(visible_message_rows.into());
 
-        let messages_widget = Paragraph::new(&wrapped_messages[first_visible..])
+        let messages_widget = Paragraph::new(&messages_lines[first_visible_line..])
             .block(Block::bordered().title(Line::from(" Chat App ").bold().centered()));
 
         // render widgets
@@ -312,8 +310,8 @@ impl App {
 
         // cursor positioning
         frame.set_cursor_position(Position::new(
-            input_area.x + 1 + cursor_pos.x,
-            input_area.y + 1 + cursor_pos.y - input_scroll,
+            input_area.x + 1 + cursor_col,
+            input_area.y + 1 + cursor_row - input_scroll,
         ));
     }
 }

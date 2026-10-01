@@ -69,16 +69,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                         match message {
                             ClientMessage::Pong => {}
-                            ClientMessage::Text(msg) => {
-                                if msg.len() > protocol::MAX_TEXT_LEN || !msg.chars().all(|c| c.is_ascii_graphic() || c == ' ') {
+                            ClientMessage::Text(text) => {
+                                if text.len() > protocol::MAX_TEXT_LEN || !text.chars().all(|c| c.is_ascii_graphic() || c == ' ') {
                                     break;
                                 }
 
-                                if msg.trim().is_empty() {
+                                if text.trim().is_empty() {
                                     continue;
                                 }
 
-                                let _ = tx.send((ServerMessage::Chat { from: nickname.clone(), text: msg }, None));
+                                let _ = tx.send((ServerMessage::Chat { from: nickname.clone(), text }, None));
                             }
                             ClientMessage::Nick(new) => {
                                 if new == nickname {

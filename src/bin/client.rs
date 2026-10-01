@@ -249,7 +249,7 @@ impl App {
             return;
         }
 
-        let inner_width = area.width.saturating_sub(2).max(1);
+        let inner_width = area.width - 2;
 
         // input widget
         let input_count = if self.input.len() * 10 >= protocol::MAX_TEXT_LEN * 9 {
@@ -267,10 +267,16 @@ impl App {
         let wrapped_input =
             App::wrap_chars(&self.input.iter().collect::<String>(), inner_width.into());
 
-        let rows = wrapped_input.len().max(1).saturating_add(2) as u16;
-        let input_height = rows.min(area.height / 2);
+        let cursor_pos = Position::new(
+            self.cursor_index as u16 % inner_width,
+            self.cursor_index as u16 / inner_width,
+        );
 
-        let input_scroll = rows.saturating_sub(input_height);
+        let rows = (wrapped_input.len() as u16).max(cursor_pos.y + 1);
+        let input_height = (rows + 2).min(area.height / 2);
+        let visible_rows = input_height - 2;
+
+        let input_scroll = (cursor_pos.y + 1).saturating_sub(visible_rows);
 
         let input_widget = Paragraph::new(wrapped_input)
             .block(
@@ -285,7 +291,7 @@ impl App {
             Layout::vertical([Constraint::Fill(1), Constraint::Length(input_height)]).areas(area);
 
         // messages widget
-        let messages_height = messages_area.height.saturating_sub(2).max(1);
+        let messages_height = messages_area.height - 2;
 
         let wrapped_messages = self
             .messages
@@ -306,10 +312,8 @@ impl App {
 
         // cursor positioning
         frame.set_cursor_position(Position::new(
-            input_area.x + 1 + self.cursor_index as u16 % inner_width,
-            input_area.y
-                + 1
-                + (self.cursor_index as u16 / inner_width).saturating_sub(input_scroll),
+            input_area.x + 1 + cursor_pos.x,
+            input_area.y + 1 + cursor_pos.y - input_scroll,
         ));
     }
 }

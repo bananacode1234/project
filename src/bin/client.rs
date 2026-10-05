@@ -110,6 +110,10 @@ impl App {
                         ServerMessage::System(msg) => {
                             self.push_message(format!("* {msg}"));
                         }
+                        ServerMessage::Welcome(nick) => {
+                            self.push_message(format!("* Welcome, {nick}"));
+                            self.nickname = nick;
+                        }
                         ServerMessage::Join(nick) => {
                             self.push_message(format!("* {nick} has joined"));
                         }

@@ -21,6 +21,7 @@ pub enum ServerMessage {
     Chat { from: String, text: String },
     Nick(String),
     System(String),
+    Welcome(String),
     Join(String),
     Leave(String),
     Ping,

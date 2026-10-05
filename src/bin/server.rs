@@ -41,12 +41,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             let mut nickname = peer_addr.to_string();
 
+            if framed
+                .send(protocol::encode(&ServerMessage::Welcome(nickname.clone())))
+                .await
+                .is_err()
+            {
+                return;
+            }
+
             {
                 let mut guard = nicknames.lock().unwrap();
                 guard.insert(nickname.to_lowercase());
             }
 
-            let _ = tx.send((ServerMessage::Join(nickname.clone()), None));
+            let _ = tx.send((ServerMessage::Join(nickname.clone()), Some(peer_addr)));
 
             loop {
                 tokio::select! {

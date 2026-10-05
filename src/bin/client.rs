@@ -104,17 +104,17 @@ impl App {
                             self.push_message(format!("<{from}> {text}"));
                         }
                         ServerMessage::Nick(new) => {
-                            self.push_message(format!("Your nickname has been changed to {new}"));
+                            self.push_message(format!("* Your nickname has been changed to {new}"));
                             self.nickname = new;
                         }
                         ServerMessage::System(msg) => {
-                            self.push_message(format!("[server] {msg}"));
+                            self.push_message(format!("* {msg}"));
                         }
                         ServerMessage::Join(nick) => {
-                            self.push_message(format!("{nick} has joined"));
+                            self.push_message(format!("* {nick} has joined"));
                         }
                         ServerMessage::Leave(nick) => {
-                            self.push_message(format!("{nick} has left"));
+                            self.push_message(format!("* {nick} has left"));
                         }
                         ServerMessage::Ping => {
                             if framed.send(protocol::encode(&ClientMessage::Pong)).await.is_err() {
@@ -191,7 +191,7 @@ impl App {
                                         match args.next() {
                                             Some("nick") => {
                                                 let Some(nick) = args.next() else {
-                                                    self.push_message("Missing argument");
+                                                    self.push_message("* Missing argument");
                                                     continue;
                                                 };
 
@@ -203,7 +203,7 @@ impl App {
                                                 self.messages.clear();
                                             }
                                             Some("exit" | "quit") => break,
-                                            Some(cmd) => self.push_message(format!("Unknown command: /{cmd}")),
+                                            Some(cmd) => self.push_message(format!("* Unknown command: /{cmd}")),
                                             None => {}
                                         }
 

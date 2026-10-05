@@ -2,7 +2,10 @@ use chat::protocol::{self, ClientMessage, ServerMessage};
 use futures::{SinkExt, StreamExt};
 use std::{
     collections::HashSet,
-    sync::{Arc, Mutex},
+    sync::{
+        Arc, Mutex,
+        atomic::{AtomicU32, Ordering},
+    },
 };
 use tokio::{
     net::TcpListener,
@@ -25,6 +28,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let nicknames = Arc::new(Mutex::new(HashSet::<String>::new()));
 
+    let next_guest = Arc::new(AtomicU32::new(1));
+
     loop {
         let (socket, peer_addr) = listener.accept().await?;
         println!("{peer_addr} connected");
@@ -33,13 +38,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let mut rx = tx.subscribe();
 
         let nicknames = Arc::clone(&nicknames);
+
+        let id = next_guest.fetch_add(1, Ordering::Relaxed);
+
         tokio::spawn(async move {
             let mut framed = Framed::new(socket, protocol::codec());
 
             let mut heartbeat_timer = interval(protocol::HEARTBEAT_INTERVAL);
             let mut last_seen = Instant::now();
 
-            let mut nickname = peer_addr.to_string();
+            let mut nickname = format!("Guest#{id}");
 
             if framed
                 .send(protocol::encode(&ServerMessage::Welcome(nickname.clone())))

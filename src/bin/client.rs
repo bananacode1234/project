@@ -8,6 +8,7 @@ use ratatui::{
     text::{Line, Text},
     widgets::{Block, Paragraph},
 };
+use std::collections::VecDeque;
 use tokio::{
     net::TcpStream,
     time::{Instant, interval},
@@ -16,6 +17,8 @@ use tokio_util::codec::Framed;
 
 const MIN_WIDTH: u16 = 40;
 const MIN_HEIGHT: u16 = 10;
+
+const MAX_MESSAGES: usize = 1000;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -29,7 +32,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 struct App {
-    messages: Vec<String>,
+    messages: VecDeque<String>,
     input: Vec<char>,
     cursor_index: usize,
     nickname: String,
@@ -38,11 +41,19 @@ struct App {
 impl App {
     const fn new() -> Self {
         Self {
-            messages: Vec::new(),
+            messages: VecDeque::new(),
             input: Vec::new(),
             cursor_index: 0,
             nickname: String::new(),
         }
+    }
+
+    fn push_message(&mut self, msg: impl Into<String>) {
+        if self.messages.len() >= MAX_MESSAGES {
+            self.messages.pop_front();
+        }
+
+        self.messages.push_back(msg.into());
     }
 
     fn cursor_left(&mut self) {
@@ -90,20 +101,20 @@ impl App {
 
                     match message {
                         ServerMessage::Chat { from, text } => {
-                            self.messages.push(format!("<{from}> {text}"));
+                            self.push_message(format!("<{from}> {text}"));
                         }
                         ServerMessage::Nick(new) => {
-                            self.messages.push(format!("Your nickname has been changed to {new}"));
+                            self.push_message(format!("Your nickname has been changed to {new}"));
                             self.nickname = new;
                         }
                         ServerMessage::System(msg) => {
-                            self.messages.push(format!("[server] {msg}"));
+                            self.push_message(format!("[server] {msg}"));
                         }
                         ServerMessage::Join(nick) => {
-                            self.messages.push(format!("{nick} has joined"));
+                            self.push_message(format!("{nick} has joined"));
                         }
                         ServerMessage::Leave(nick) => {
-                            self.messages.push(format!("{nick} has left"));
+                            self.push_message(format!("{nick} has left"));
                         }
                         ServerMessage::Ping => {
                             if framed.send(protocol::encode(&ClientMessage::Pong)).await.is_err() {
@@ -180,7 +191,7 @@ impl App {
                                         match args.next() {
                                             Some("nick") => {
                                                 let Some(nick) = args.next() else {
-                                                    self.messages.push("Missing argument".to_owned());
+                                                    self.push_message("Missing argument");
                                                     continue;
                                                 };
 
@@ -192,7 +203,7 @@ impl App {
                                                 self.messages.clear();
                                             }
                                             Some("exit" | "quit") => break,
-                                            Some(cmd) => self.messages.push(format!("Unknown command: /{cmd}")),
+                                            Some(cmd) => self.push_message(format!("Unknown command: /{cmd}")),
                                             None => {}
                                         }
 

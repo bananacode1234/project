@@ -53,19 +53,6 @@ impl App {
         self.cursor_index = (self.cursor_index + 1).min(self.input.len());
     }
 
-    fn wrap_chars(s: &str, width: usize) -> Vec<Line<'static>> {
-        let chars: Vec<char> = s.chars().collect();
-
-        if chars.is_empty() {
-            return vec![Line::default()];
-        }
-
-        chars
-            .chunks(width.max(1))
-            .map(|c| Line::from(c.iter().collect::<String>()))
-            .collect()
-    }
-
     async fn run(
         mut self,
         mut terminal: DefaultTerminal,
@@ -264,8 +251,7 @@ impl App {
             Line::default()
         };
 
-        let input_lines =
-            Self::wrap_chars(&self.input.iter().collect::<String>(), inner_width.into());
+        let input_lines = wrap_chars(&self.input.iter().collect::<String>(), inner_width.into());
 
         let cursor_col = self.cursor_index as u16 % inner_width;
         let cursor_row = self.cursor_index as u16 / inner_width;
@@ -294,7 +280,7 @@ impl App {
         let messages_lines = self
             .messages
             .iter()
-            .flat_map(|s| Self::wrap_chars(s, inner_width.into()))
+            .flat_map(|s| wrap_chars(s, inner_width.into()))
             .collect::<Vec<Line>>();
 
         let first_visible_line = messages_lines
@@ -314,4 +300,17 @@ impl App {
             input_area.y + 1 + cursor_row - input_scroll,
         ));
     }
+}
+
+fn wrap_chars(s: &str, width: usize) -> Vec<Line<'static>> {
+    let chars: Vec<char> = s.chars().collect();
+
+    if chars.is_empty() {
+        return vec![Line::default()];
+    }
+
+    chars
+        .chunks(width.max(1))
+        .map(|c| Line::from(c.iter().collect::<String>()))
+        .collect()
 }

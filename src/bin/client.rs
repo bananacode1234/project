@@ -155,7 +155,7 @@ impl App {
 
                             match key_event.code {
                                 KeyCode::Char(c) => {
-                                    if self.input.len() < protocol::MAX_TEXT_LEN && (c.is_ascii_graphic() || c == ' ') {
+                                    if self.input.len() < protocol::MAX_TEXT_LEN && protocol::is_valid_text_char(c) {
                                         self.input.insert(self.cursor_index, c);
                                         self.cursor_right();
                                     }

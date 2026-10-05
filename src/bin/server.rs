@@ -70,7 +70,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         match message {
                             ClientMessage::Pong => {}
                             ClientMessage::Text(text) => {
-                                if text.len() > protocol::MAX_TEXT_LEN || !text.chars().all(|c| c.is_ascii_graphic() || c == ' ') {
+                                if !protocol::is_valid_text(&text) {
                                     break;
                                 }
 
@@ -89,7 +89,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                     continue;
                                 }
 
-                                if !(3..=20).contains(&new.len()) || new.chars().any(|c| !c.is_ascii_alphanumeric()) {
+                                if !protocol::is_valid_nickname(&new) {
                                     if framed.send(protocol::encode(
                                         &ServerMessage::System("Invalid nickname (3-20 letters/numbers only)".to_owned())
                                     )).await.is_err() {

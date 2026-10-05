@@ -39,3 +39,15 @@ pub fn codec() -> LengthDelimitedCodec {
         .max_frame_length(MAX_FRAME_LEN)
         .new_codec()
 }
+
+pub fn is_valid_text_char(char: char) -> bool {
+    char.is_ascii_graphic() || char == ' '
+}
+
+pub fn is_valid_text(text: &str) -> bool {
+    text.len() <= MAX_TEXT_LEN && text.chars().all(is_valid_text_char)
+}
+
+pub fn is_valid_nickname(nick: &str) -> bool {
+    (3..=20).contains(&nick.len()) && nick.chars().all(|c| c.is_ascii_alphanumeric())
+}

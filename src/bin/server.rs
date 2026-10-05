@@ -21,7 +21,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("Listening on {addr}");
 
-    let (tx, _rx) = broadcast::channel::<(ServerMessage, Option<std::net::SocketAddr>)>(32);
+    let (tx, _rx) = broadcast::channel::<(ServerMessage, Option<std::net::SocketAddr>)>(256);
 
     let nicknames = Arc::new(Mutex::new(HashSet::<String>::new()));
 

@@ -149,6 +149,40 @@ impl App {
                                     KeyCode::Char('a') => self.cursor_index = 0,
                                     KeyCode::Char('e') => self.cursor_index = self.input.len(),
                                     KeyCode::Char('k') => self.input.truncate(self.cursor_index),
+                                    KeyCode::Char('w') | KeyCode::Backspace => {
+                                        let start = word_start_before(&self.input, self.cursor_index);
+
+                                        self.input.drain(start..self.cursor_index);
+                                        self.cursor_index = start;
+                                    }
+                                    KeyCode::Delete => {
+                                        let end = word_end_after(&self.input, self.cursor_index);
+
+                                        self.input.drain(self.cursor_index..end);
+                                    }
+                                    KeyCode::Left => self.cursor_index = word_start_before(&self.input, self.cursor_index),
+                                    KeyCode::Right => self.cursor_index = word_end_after(&self.input, self.cursor_index),
+                                    _ => {}
+                                }
+
+                                continue;
+                            }
+
+                            if key_event.modifiers.contains(KeyModifiers::ALT) {
+                                match key_event.code {
+                                    KeyCode::Backspace => {
+                                        let start = word_start_before(&self.input, self.cursor_index);
+
+                                        self.input.drain(start..self.cursor_index);
+                                        self.cursor_index = start;
+                                    }
+                                    KeyCode::Char('d') => {
+                                        let end = word_end_after(&self.input, self.cursor_index);
+
+                                        self.input.drain(self.cursor_index..end);
+                                    }
+                                    KeyCode::Char('b') | KeyCode::Left => self.cursor_index = word_start_before(&self.input, self.cursor_index),
+                                    KeyCode::Char('f') | KeyCode::Right => self.cursor_index = word_end_after(&self.input, self.cursor_index),
                                     _ => {}
                                 }
 
@@ -179,6 +213,8 @@ impl App {
                                 KeyCode::Right => {
                                     self.cursor_right();
                                 }
+                                KeyCode::Home => self.cursor_index = 0,
+                                KeyCode::End => self.cursor_index = self.input.len(),
                                 KeyCode::Enter => {
                                     let line: String = self.input.iter().collect();
 
@@ -328,4 +364,33 @@ fn wrap_chars(s: &str, width: usize) -> Vec<Line<'static>> {
         .chunks(width.max(1))
         .map(|c| Line::from(c.iter().collect::<String>()))
         .collect()
+}
+
+fn word_start_before(input: &[char], index: usize) -> usize {
+    let mut i = index;
+
+    while i > 0 && input[i - 1] == ' ' {
+        i -= 1;
+    }
+
+    while i > 0 && input[i - 1] != ' ' {
+        i -= 1;
+    }
+
+    i
+}
+
+fn word_end_after(input: &[char], index: usize) -> usize {
+    let mut i = index;
+    let len = input.len();
+
+    while i < len && input[i] == ' ' {
+        i += 1;
+    }
+
+    while i < len && input[i] != ' ' {
+        i += 1;
+    }
+
+    i
 }

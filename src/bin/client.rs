@@ -111,7 +111,7 @@ impl App {
                             self.push_message(format!("* {msg}"));
                         }
                         ServerMessage::Welcome(nick) => {
-                            self.push_message(format!("* Welcome, {nick}"));
+                            self.push_message(format!("* Welcome, {nick}. Type /help for commands."));
                             self.nickname = nick;
                         }
                         ServerMessage::Join(nick) => {
@@ -229,9 +229,18 @@ impl App {
                                         let mut args = command.split_whitespace();
 
                                         match args.next() {
+                                            Some("help") => {
+                                                for line in [
+                                                    "Commands:",
+                                                    "  /nick <name>  change your nickname",
+                                                    "  /clear        clear the screen (Ctrl+L)",
+                                                    "  /exit         exit the app (Ctrl+C)",
+                                                    "  /help         show this message",
+                                                ] { self.push_message(line) }
+                                            }
                                             Some("nick") => {
                                                 let Some(nick) = args.next() else {
-                                                    self.push_message("* Missing argument");
+                                                    self.push_message("* Usage: /nick <name>");
                                                     continue;
                                                 };
 
@@ -243,7 +252,7 @@ impl App {
                                                 self.messages.clear();
                                             }
                                             Some("exit" | "quit") => break,
-                                            Some(cmd) => self.push_message(format!("* Unknown command: /{cmd}")),
+                                            Some(cmd) => self.push_message(format!("* Unknown command: /{cmd} (try /help)")),
                                             None => {}
                                         }
 

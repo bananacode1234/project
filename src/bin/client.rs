@@ -311,10 +311,13 @@ impl App {
             Line::default()
         };
 
-        let input_lines = wrap_chars(&self.input.iter().collect::<String>(), inner_width.into());
+        let input_lines = wrap_chars(
+            &format!("> {}", self.input.iter().collect::<String>()),
+            inner_width.into(),
+        );
 
-        let cursor_col = self.cursor_index as u16 % inner_width;
-        let cursor_row = self.cursor_index as u16 / inner_width;
+        let cursor_col = (self.cursor_index as u16 + 2) % inner_width;
+        let cursor_row = (self.cursor_index as u16 + 2) / inner_width;
 
         let input_rows = (input_lines.len() as u16).max(cursor_row + 1);
         let input_height = (input_rows + 2).min(area.height / 2);

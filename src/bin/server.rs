@@ -24,7 +24,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("Listening on {addr}");
 
-    let (tx, _rx) = broadcast::channel::<(ServerMessage, Option<std::net::SocketAddr>)>(256);
+    let (tx, _rx) = broadcast::channel::<(ServerMessage, Option<u32>)>(256);
 
     let nicknames = Arc::new(Mutex::new(HashSet::<String>::new()));
 
@@ -62,7 +62,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 guard.insert(nickname.to_lowercase());
             }
 
-            let _ = tx.send((ServerMessage::Join(nickname.clone()), Some(peer_addr)));
+            let _ = tx.send((ServerMessage::Join(nickname.clone()), Some(id)));
 
             loop {
                 tokio::select! {
@@ -72,7 +72,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         }
                     }
                     result = framed.next() => {
-                        // client message -> broadcast
                         let Some(Ok(frame)) = result else {
                             break;
                         };
@@ -141,7 +140,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                                 let old = std::mem::replace(&mut nickname, new);
 
-                                let _ = tx.send((ServerMessage::System(format!("{old} has changed their nickname to {nickname}")), Some(peer_addr)));
+                                let _ = tx.send((ServerMessage::System(format!("{old} has changed their nickname to {nickname}")), Some(id)));
 
                                 if framed.send(protocol::encode(&ServerMessage::Nick(nickname.clone()))).await.is_err() {
                                     break;
@@ -150,8 +149,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         }
                     }
                     result = rx.recv() => {
-                        // broadcast message -> client
-                        let (msg, addr) = match result {
+                        let (msg, exclude_id) = match result {
                             Ok(pair) => pair,
                             Err(broadcast::error::RecvError::Lagged(n)) => {
                                 if framed.send(protocol::encode(&ServerMessage::System(format!("You missed {n} messages")))).await.is_err() {
@@ -163,7 +161,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             _ => continue,
                         };
 
-                        if Some(peer_addr) == addr {
+                        if Some(id) == exclude_id {
                             continue;
                         }
 
